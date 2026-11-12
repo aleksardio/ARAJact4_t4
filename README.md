@@ -1,6 +1,6 @@
 # Actividad 4
 
-Proyecto inicial de la Actividad 4, preparado para desarrollar una aplicación Spring Boot por etapas. En esta primera etapa se configura la base del proyecto; todavía no se implementan entidades, endpoints, CRUD ni autenticación JWT.
+Proyecto de la Actividad 4, preparado para desarrollar una aplicación Spring Boot por etapas. Cuenta con entidades y repositorios para usuarios y materias; todavía no se implementan endpoints, CRUD ni autenticación JWT.
 
 ## Tecnologías
 
@@ -20,11 +20,14 @@ Para compilar y ejecutar las pruebas en Windows:
 .\mvnw.cmd verify
 ```
 
-La prueba inicial comprueba la anotación de la clase principal sin levantar el contexto de Spring; así no necesita MySQL, usuarios ni claves JWT. No verifica todavía el arranque de la aplicación ni la conexión a la base de datos.
+Las pruebas de persistencia utilizan H2 exclusivamente en memoria, ejecutan `database/schema.sql` en modo de compatibilidad MySQL y validan los mapeos con Hibernate. No acceden a la base MySQL local y no sustituyen una verificación en MySQL 8 real. La prueba inicial comprueba la anotación de la clase principal sin levantar el contexto.
+
+## Esquema MySQL
+
+En MySQL Workbench, conecta a la instancia local, selecciona la base `araj_act4_dev`, abre `database/schema.sql` y revisa y ejecuta el script sobre esa base. Si la base no existe, créala previamente desde Workbench. El script crea tablas y falla si ya existen: revisa cualquier tabla existente antes de ejecutarlo. Requiere MySQL 8.0.16 o posterior para que se aplique la restricción `CHECK` de semestre. No se ejecuta automáticamente al iniciar la aplicación.
 
 ## Etapas futuras
 
-1. Definir el modelo y la persistencia.
-2. Implementar el CRUD y sus pruebas.
-3. Configurar autenticación y autorización con JWT.
-4. Preparar y validar el despliegue.
+1. Implementar el CRUD y sus pruebas.
+2. Configurar autenticación y autorización con JWT.
+3. Preparar y validar el despliegue.
