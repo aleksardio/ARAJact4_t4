@@ -1,0 +1,40 @@
+meta {
+  name: 02 - Iniciar sesión
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {}
+}
+
+script:pre-request {
+  bru.deleteVar("accessToken");
+  const email = bru.getVar("emailPrueba");
+  const password = bru.getEnvVar("passwordPrueba") || bru.getProcessEnv("BRUNO_PASSWORD");
+  if (!email || !password) throw new Error("Ejecuta primero el registro y configura passwordPrueba");
+  req.setBody({ email, password });
+}
+
+script:post-response {
+  if (res.getStatus() === 200 && typeof res.getBody().accessToken === "string" && res.getBody().accessToken) {
+    bru.setVar("accessToken", res.getBody().accessToken);
+  }
+}
+
+tests {
+  test("Login devuelve JWT Bearer sin credenciales", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().accessToken).to.be.a("string").and.not.empty;
+    expect(res.getBody().tokenType).to.equal("Bearer");
+    expect(res.getBody().expiresIn).to.equal(3600);
+    expect(res.getBody()).not.to.have.property("password");
+    expect(res.getBody()).not.to.have.property("passwordHash");
+  });
+}

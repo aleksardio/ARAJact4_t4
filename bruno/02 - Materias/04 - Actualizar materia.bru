@@ -1,0 +1,35 @@
+meta {
+  name: 04 - Actualizar materia
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/materias/{{materiaId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {"nombre":"Materia Bruno actualizada","docente":"Docente de prueba","semestre":2}
+}
+
+script:pre-request {
+  const creada = bru.getVar("materiaCreada");
+  if (!creada || creada.id !== bru.getVar("materiaId") || creada.baseUrl !== bru.getEnvVar("baseUrl") || creada.token !== bru.getVar("accessToken")) {
+    throw new Error("Solo se puede actualizar una materia creada por este flujo en el mismo entorno y sesión");
+  }
+}
+
+tests {
+  test("Actualización devuelve 200", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().id).to.equal(bru.getVar("materiaId"));
+    expect(res.getBody().nombre).to.equal("Materia Bruno actualizada");
+    expect(res.getBody().semestre).to.equal(2);
+  });
+}

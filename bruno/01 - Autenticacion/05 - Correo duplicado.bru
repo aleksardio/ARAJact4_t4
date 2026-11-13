@@ -1,0 +1,29 @@
+meta {
+  name: 05 - Correo duplicado
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {}
+}
+
+script:pre-request {
+  const email = bru.getVar("emailPrueba");
+  const password = bru.getEnvVar("passwordPrueba") || bru.getProcessEnv("BRUNO_PASSWORD");
+  if (!email || !password) throw new Error("Ejecuta primero el registro y configura passwordPrueba");
+  req.setBody({ nombre: "Usuario de prueba Bruno", email, password });
+}
+
+tests {
+  test("Correo duplicado devuelve 409", function() {
+    expect(res.getStatus()).to.equal(409);
+    expect(res.getBody().estado).to.equal(409);
+  });
+}

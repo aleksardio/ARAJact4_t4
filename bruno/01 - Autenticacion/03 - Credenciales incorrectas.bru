@@ -1,0 +1,30 @@
+meta {
+  name: 03 - Credenciales incorrectas
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {}
+}
+
+script:pre-request {
+  const email = bru.getVar("emailPrueba");
+  const password = bru.getEnvVar("passwordPrueba") || bru.getProcessEnv("BRUNO_PASSWORD");
+  if (!email || !password) throw new Error("Ejecuta primero el registro y configura passwordPrueba");
+  req.setBody({ email, password: password + "!" });
+}
+
+tests {
+  test("Credenciales incorrectas devuelven 401 genérico", function() {
+    expect(res.getStatus()).to.equal(401);
+    expect(res.getBody().estado).to.equal(401);
+    expect(res.getBody().mensaje).to.equal("Credenciales inválidas");
+  });
+}

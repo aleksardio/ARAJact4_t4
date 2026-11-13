@@ -1,0 +1,27 @@
+meta {
+  name: 03 - Semestre inválido
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/materias
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {"nombre":"Materia inválida","docente":"Docente de prueba","semestre":13}
+}
+
+tests {
+  test("Semestre inválido devuelve 400", function() {
+    expect(res.getStatus()).to.equal(400);
+    expect(res.getBody().estado).to.equal(400);
+    expect(res.getBody().campos).to.have.property("semestre");
+  });
+}

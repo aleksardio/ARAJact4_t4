@@ -1,0 +1,22 @@
+meta {
+  name: 03 - Consultar materia
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/materias/{{materiaId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("Consulta materia creada", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().id).to.equal(bru.getVar("materiaId"));
+  });
+}

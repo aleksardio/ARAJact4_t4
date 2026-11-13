@@ -1,0 +1,25 @@
+meta {
+  name: 05 - Listar con paginación
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/materias?page=0&size=1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("Página tiene tamaño solicitado", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().pagina).to.equal(0);
+    expect(res.getBody().tamano).to.equal(1);
+    expect(res.getBody().contenido).to.be.an("array");
+    expect(res.getBody().contenido.length).to.be.at.most(1);
+  });
+}

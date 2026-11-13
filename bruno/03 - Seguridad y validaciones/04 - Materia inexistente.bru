@@ -1,0 +1,22 @@
+meta {
+  name: 04 - Materia inexistente
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/materias/9223372036854775807
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("ID inexistente devuelve 404", function() {
+    expect(res.getStatus()).to.equal(404);
+    expect(res.getBody().estado).to.equal(404);
+  });
+}

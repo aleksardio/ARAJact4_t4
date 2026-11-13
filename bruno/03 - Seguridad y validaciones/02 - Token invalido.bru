@@ -1,0 +1,22 @@
+meta {
+  name: 02 - Token inválido
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/materias
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: token-invalido
+}
+
+tests {
+  test("Token inválido devuelve 401", function() {
+    expect(res.getStatus()).to.equal(401);
+    expect(res.getBody().estado).to.equal(401);
+  });
+}

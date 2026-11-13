@@ -1,0 +1,29 @@
+meta {
+  name: 05 - Materia eliminada
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/materias/{{materiaId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+script:pre-request {
+  const eliminada = bru.getVar("materiaEliminada");
+  if (!eliminada || eliminada.id !== bru.getVar("materiaId") || eliminada.baseUrl !== bru.getEnvVar("baseUrl") || eliminada.token !== bru.getVar("accessToken")) {
+    throw new Error("Ejecuta primero la eliminación de la materia creada por este flujo");
+  }
+}
+
+tests {
+  test("Materia eliminada devuelve 404", function() {
+    expect(res.getStatus()).to.equal(404);
+    expect(res.getBody().estado).to.equal(404);
+  });
+}

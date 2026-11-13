@@ -1,0 +1,35 @@
+meta {
+  name: 06 - Eliminar materia
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{baseUrl}}/api/materias/{{materiaId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+script:pre-request {
+  const creada = bru.getVar("materiaCreada");
+  if (!creada || creada.id !== bru.getVar("materiaId") || creada.baseUrl !== bru.getEnvVar("baseUrl") || creada.token !== bru.getVar("accessToken")) {
+    throw new Error("Solo se puede eliminar una materia creada por este flujo en el mismo entorno y sesión");
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 204) {
+    bru.setVar("materiaEliminada", bru.getVar("materiaCreada"));
+    bru.deleteVar("materiaCreada");
+  }
+}
+
+tests {
+  test("Eliminación devuelve 204", function() {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

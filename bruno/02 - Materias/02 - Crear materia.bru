@@ -1,0 +1,43 @@
+meta {
+  name: 02 - Crear materia
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/materias
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {"nombre":"Materia de prueba Bruno","docente":"Docente de prueba","semestre":1}
+}
+
+script:pre-request {
+  bru.deleteVar("materiaId");
+  bru.deleteVar("materiaCreada");
+  bru.deleteVar("materiaEliminada");
+  if (!bru.getVar("accessToken")) throw new Error("Ejecuta primero el login");
+}
+
+script:post-response {
+  if (res.getStatus() === 201 && Number.isSafeInteger(res.getBody().id) && res.getBody().id > 0) {
+    const id = res.getBody().id;
+    bru.setVar("materiaId", id);
+    bru.setVar("materiaCreada", { id, baseUrl: bru.getEnvVar("baseUrl"), token: bru.getVar("accessToken") });
+  }
+}
+
+tests {
+  test("Materia creada y vinculada al flujo", function() {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().id).to.be.a("number");
+    expect(res.getBody().nombre).to.equal("Materia de prueba Bruno");
+    expect(res.getBody()).not.to.have.property("usuario");
+  });
+}

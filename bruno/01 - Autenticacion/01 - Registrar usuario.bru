@@ -1,0 +1,45 @@
+meta {
+  name: 01 - Registrar usuario
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {}
+}
+
+script:pre-request {
+  bru.deleteVar("emailPrueba");
+  bru.deleteVar("accessToken");
+  bru.deleteVar("materiaId");
+  bru.deleteVar("materiaCreada");
+  bru.deleteVar("materiaEliminada");
+  const password = bru.getEnvVar("passwordPrueba") || bru.getProcessEnv("BRUNO_PASSWORD");
+  if (!password) throw new Error("Configura el secreto passwordPrueba antes de registrar");
+  const email = "bruno-" + bru.interpolate("{{$guid}}") + "@example.test";
+  bru.setVar("emailPendiente", email);
+  req.setBody({ nombre: "Usuario de prueba Bruno", email, password });
+}
+
+script:post-response {
+  if (res.getStatus() === 201 && res.getBody().email === bru.getVar("emailPendiente")) {
+    bru.setVar("emailPrueba", res.getBody().email);
+  }
+  bru.deleteVar("emailPendiente");
+}
+
+tests {
+  test("Registro devuelve 201 y datos públicos", function() {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().id).to.be.a("number");
+    expect(res.getBody().email).to.equal(bru.getVar("emailPrueba"));
+    expect(res.getBody()).not.to.have.property("password");
+    expect(res.getBody()).not.to.have.property("passwordHash");
+  });
+}

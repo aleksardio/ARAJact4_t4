@@ -112,8 +112,23 @@ Spring Security permite anónimamente solo `POST /api/auth/register` y `POST /ap
 
 En MySQL Workbench, conecta a la instancia local y comprueba `SELECT VERSION();`, `SHOW DATABASES LIKE 'araj_act4_dev';` y, si existe, `USE araj_act4_dev; SHOW TABLES;`. Si faltan ambas tablas y tienes autorización para crearlas, selecciona `araj_act4_dev` como esquema predeterminado, abre `D:\Spring\act4\database\schema.sql` con **File > Open SQL Script**, comprueba el esquema seleccionado y ejecuta el script completo con el botón del rayo. Si falta la base, solicita autorización antes de crearla. Si existe alguna tabla, no vuelvas a ejecutar el script completo: revisa primero el esquema existente para evitar cambios no deseados. Requiere MySQL 8.0.16 o posterior para que se aplique la restricción `CHECK` de semestre. No se ejecuta automáticamente al iniciar la aplicación. Usa una cuenta dedicada para la aplicación, no `root` como usuario permanente.
 
+## Pruebas de la API con Bruno
+
+1. Instala Bruno Desktop desde [usebruno.com/downloads](https://www.usebruno.com/downloads) y abre la carpeta `D:\Spring\act4\bruno` mediante **Open Collection**. La colección usa el formato `.bru` y se ha ejecutado con Bruno CLI 4.3.0.
+2. Arranca la API local con MySQL y selecciona el entorno **Local**. Comprueba que `baseUrl` sea `http://localhost:8088`.
+3. En la configuración de ese entorno abre la pestaña **Secrets** e introduce localmente `passwordPrueba`: al menos 8 caracteres, hasta 72 bytes UTF-8. Bruno guarda el valor del secreto en su almacén local, no en el `.bru`. No escribas contraseñas ni tokens en variables ordinarias, capturas o reportes compartidos. El secreto del entorno **DigitalOcean** es independiente.
+4. Ejecuta **01 - Registrar usuario** y luego **02 - Iniciar sesión**. El registro genera un correo único `@example.test` y lo guarda en la variable de ejecución `emailPrueba`; el login guarda el JWT en memoria como `accessToken`. No se llama a `setEnvVar`, por lo que el token no se escribe en el archivo de entorno. El token vence a los 3600 segundos.
+5. Ejecuta las peticiones de **02 - Materias** en orden: listar, crear, consultar, actualizar, paginar y eliminar. La creación guarda el ID de la respuesta en `materiaId`. Actualizar y eliminar comprueban que ese ID fue creado por el flujo con el mismo entorno y token. Finalmente ejecuta **03 - Seguridad y validaciones**, incluida la consulta de la materia eliminada.
+
+Para ejecutar todo, usa el **Runner** de la colección, selecciona **Local**, incluye las tres carpetas y ejecuta en orden secuencial, sin paralelismo. Cada ejecución registra un usuario nuevo y crea y elimina una materia de prueba; la API no proporciona eliminación de usuarios, por lo que el usuario queda en la base. Si se interrumpe antes del DELETE puede quedar también la materia de prueba. El registro, la creación, la actualización y la eliminación modifican la base; los registros inválido y duplicado y el POST de semestre inválido esperan ser rechazados sin crear datos. Login y GET son de solo lectura para los datos de la API.
+
+Las peticiones pueden ejecutarse individualmente en la misma sesión, respetando sus dependencias: registro antes de login; login antes de las peticiones protegidas; crear antes de consultar, actualizar o eliminar; eliminar antes de verificar el 404. Las variables de ejecución se pierden al cerrar Bruno; no sustituyas manualmente `materiaId` para operar sobre datos ajenos. Si renuevas el login, crea otra materia antes de actualizar o borrar, porque la protección vincula el ID al token de la creación. No cambies de entorno durante el flujo. El ID máximo usado para la prueba de inexistencia solo se consulta; si alguna vez existe y pertenece al usuario de prueba, esa comprobación no será válida.
+
+La carpeta también incluye el entorno **DigitalOcean**, con `http://204.48.17.197:8087`, reservado para más adelante. La colección no contacta ese destino mientras se seleccione Local. La URL es HTTP, no HTTPS: no envíes contraseñas ni JWT por redes no confiables; configura transporte seguro antes de utilizarla. El VPS todavía no contiene necesariamente esta versión.
+
+Como alternativa, Bruno CLI puede leer la contraseña de prueba de la variable de proceso `BRUNO_PASSWORD`, sin guardar su valor en la colección. Desde `bruno/`, después de configurarla en el entorno del proceso, ejecuta `bru run -r --env Local --bail`. No uses `--verbose` ni reportes con cuerpos o cabeceras si pueden contener credenciales. Los resultados anteriores de CLI no sustituyen revisar las pruebas en Bruno Desktop cuando se desee verificar la interfaz.
+
 ## Etapas futuras
 
-1. Preparar la colección Bruno para registro, login y CRUD usando variables de entorno y un token obtenido dinámicamente.
-2. Revisar gestión y rotación de claves, limitación de intentos, HTTPS y demás medidas antes de producción.
-3. Preparar y validar el despliegue por separado.
+1. Revisar gestión y rotación de claves, limitación de intentos, HTTPS y demás medidas antes de producción.
+2. Preparar y validar el despliegue por separado.
