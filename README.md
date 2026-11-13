@@ -1,6 +1,6 @@
 # Actividad 4
 
-API académica con registro, autenticación JWT y CRUD REST de materias por propietario. El VPS todavía no contiene esta versión; no se ha desplegado desde este proyecto.
+API REST académica sin frontend, con registro, autenticación JWT y CRUD de materias por propietario. Está desplegada en DigitalOcean y disponible mediante HTTPS en `https://204.48.17.197`.
 
 ## Tecnologías
 
@@ -8,16 +8,31 @@ API académica con registro, autenticación JWT y CRUD REST de materias por prop
 - Spring Boot 4.1.2: Spring Web MVC, Data JPA, Security, OAuth2 Resource Server y Bean Validation.
 - MySQL Connector/J y herramientas de prueba de Spring Boot y Spring Security.
 
+## Arquitectura y funcionamiento
+
+```text
+Cliente REST / Bruno
+       │ HTTPS :443 en el VPS
+       ▼
+Nginx → Spring Boot (127.0.0.1:8087) → Spring Data JPA → MySQL 8
+                 │
+                 └─ Spring Security: BCrypt, JWT RS256 y autorización
+```
+
+Los controladores exponen solicitudes y respuestas mediante DTOs; los servicios implementan las reglas de negocio y los repositorios JPA acceden a las entidades `Usuario` y `Materia`. Cada materia pertenece a un usuario. Después de verificar un JWT, Spring Security construye una identidad confiable con el ID del usuario; el servicio consulta las materias por ese ID y no acepta un propietario indicado por el cliente. El acceso a una materia ajena devuelve 404.
+
+El registro almacena exclusivamente un hash BCrypt. El login verifica las credenciales y entrega un JWT firmado; las rutas de materias requieren ese token en la cabecera `Authorization`. La API es stateless y no usa frontend ni sesión de servidor para autenticación.
+
 ## Configuración local
 
 Configura las variables de entorno `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` antes de iniciar la aplicación con una base de datos MySQL. Si no se define `DB_URL`, se utiliza `jdbc:mysql://localhost:3306/araj_act4_dev`. No guardes credenciales en el repositorio. Hibernate valida el esquema existente (`ddl-auto=validate`), pero no crea tablas.
 
 El puerto predeterminado es 8088. Para desplegar en el VPS puede sobrescribirse, por ejemplo, con la variable de entorno `SERVER_PORT=8087`, sin modificar el código.
 
-Para compilar y ejecutar las pruebas en Windows:
+Desde la raíz del repositorio, para compilar y ejecutar las pruebas en Windows:
 
 ```powershell
-.\mvnw.cmd verify
+.\mvnw.cmd clean verify
 ```
 
 Las pruebas de persistencia y del controlador utilizan H2 exclusivamente en memoria, ejecutan `database/schema.sql` en modo de compatibilidad MySQL y validan los mapeos con Hibernate. Las pruebas HTTP usan MockMvc; las nuevas pruebas JWT verifican firmas reales con claves efímeras de prueba. No acceden a la base MySQL local y no sustituyen una verificación en MySQL 8 real.
@@ -40,7 +55,21 @@ $env:DB_PASSWORD = Read-Host "Contraseña MySQL" -AsSecureString | ConvertFrom-S
 .\mvnw.cmd spring-boot:run
 ```
 
-La opción `ConvertFrom-SecureString -AsPlainText` requiere PowerShell 7. En Windows PowerShell 5.1, establece `DB_PASSWORD` por otro mecanismo seguro del entorno. Restringe los permisos del archivo de clave al usuario que ejecuta la aplicación y almacénalo fuera del repositorio; el `.gitignore` también excluye `*.pem` y `*.key` como protección adicional, no como sustituto de los permisos. No compartas la clave ni la subas a Git. Para el VPS deberán generarse y protegerse claves independientes y configurarse su propio emisor; no se ha accedido al VPS. El transporte en entornos reales debe usar HTTPS.
+La opción `ConvertFrom-SecureString -AsPlainText` requiere PowerShell 7. En Windows PowerShell 5.1, establece `DB_PASSWORD` por otro mecanismo seguro del entorno. Restringe los permisos del archivo de clave al usuario que ejecuta la aplicación y almacénalo fuera del repositorio; el `.gitignore` también excluye `*.pem` y `*.key` como protección adicional, no como sustituto de los permisos. No compartas la clave ni la subas a Git. Usa claves y credenciales independientes para cada entorno y HTTPS para el transporte público.
+
+## Endpoints
+
+Todas las rutas usan JSON. Sustituye la URL base por `http://localhost:8088` en desarrollo local o `https://204.48.17.197` en el despliegue.
+
+| Método y ruta | Acceso | Resultado exitoso |
+| --- | --- | --- |
+| `POST /api/auth/register` | Público | 201, usuario público creado |
+| `POST /api/auth/login` | Público | 200, token Bearer y duración |
+| `GET /api/materias` | JWT | 200, página de materias propias |
+| `GET /api/materias/{id}` | JWT | 200, materia propia |
+| `POST /api/materias` | JWT | 201, materia creada y cabecera `Location` |
+| `PUT /api/materias/{id}` | JWT | 200, materia actualizada |
+| `DELETE /api/materias/{id}` | JWT | 204, sin contenido |
 
 ## Registro y credenciales
 
@@ -78,6 +107,25 @@ Authorization: Bearer <JWT-firmado>
 
 Un token ausente, malformado, vencido, firmado con otra clave o con claims inválidos produce `401`; una ruta no autorizada para una identidad autenticada produce `403`. Las respuestas de error usan `estado`, `mensaje` y `campos`, sin credenciales. Protege el token como una credencial: quien lo posea puede utilizarlo hasta su vencimiento. No hay renovación ni revocación individual de tokens en esta etapa; eliminar al usuario impide su uso y cambiar la clave invalida los tokens anteriores.
 
+### Códigos y errores
+
+| Código | Significado en esta API |
+| --- | --- |
+| 200 | Login, consulta o actualización exitosa. |
+| 201 | Registro de usuario o creación de materia exitosa. |
+| 204 | Materia eliminada, sin cuerpo de respuesta. |
+| 400 | JSON, validación o parámetros inválidos. |
+| 401 | Credenciales incorrectas o autenticación Bearer ausente o inválida. |
+| 403 | Acceso denegado a una identidad autenticada. |
+| 404 | Materia inexistente o que pertenece a otro usuario. |
+| 409 | Correo ya registrado. |
+
+Ejemplo de error tratado:
+
+```json
+{"estado":401,"mensaje":"Credenciales inválidas","campos":{}}
+```
+
 ## CRUD de materias
 
 | Método y ruta | Resultado exitoso |
@@ -112,10 +160,18 @@ Spring Security permite anónimamente solo `POST /api/auth/register` y `POST /ap
 
 En MySQL Workbench, conecta a la instancia local y comprueba `SELECT VERSION();`, `SHOW DATABASES LIKE 'araj_act4_dev';` y, si existe, `USE araj_act4_dev; SHOW TABLES;`. Si faltan ambas tablas y tienes autorización para crearlas, selecciona `araj_act4_dev` como esquema predeterminado, abre `D:\Spring\act4\database\schema.sql` con **File > Open SQL Script**, comprueba el esquema seleccionado y ejecuta el script completo con el botón del rayo. Si falta la base, solicita autorización antes de crearla. Si existe alguna tabla, no vuelvas a ejecutar el script completo: revisa primero el esquema existente para evitar cambios no deseados. Requiere MySQL 8.0.16 o posterior para que se aplique la restricción `CHECK` de semestre. No se ejecuta automáticamente al iniciar la aplicación. Usa una cuenta dedicada para la aplicación, no `root` como usuario permanente.
 
+## Despliegue en DigitalOcean
+
+La instancia informada utiliza Ubuntu 24.04 LTS. La API pública está en **`https://204.48.17.197`**; Nginx recibe HTTPS en el puerto 443 y reenvía a Spring Boot en `127.0.0.1:8087`. El puerto 8087 es interno, no la URL pública de la colección. El proceso se ejecuta como `act4svc` mediante `spring-act4-araj.service` y utiliza `/opt/spring-act4-araj/act4.jar`. MySQL se ejecuta localmente en el VPS con la base `araj_act4` y el usuario de aplicación `act4_api`.
+
+El certificado para la IP fue emitido por Let's Encrypt y su renovación está programada con Certbot. La simulación `certbot renew --dry-run` fue reportada como exitosa y aparece en las evidencias. La configuración de variables y claves privadas debe permanecer fuera de Git, con acceso restringido al servicio; no se incluyen sus valores aquí. Las claves de desarrollo y del VPS deben ser independientes.
+
+Este apartado describe la configuración y las verificaciones proporcionadas para la entrega; no implica una comprobación de disponibilidad en tiempo real. No se ejecutan aquí comandos de despliegue ni cambios sobre el servidor.
+
 ## Pruebas de la API con Bruno
 
 1. Instala Bruno Desktop desde [usebruno.com/downloads](https://www.usebruno.com/downloads) y abre la carpeta `D:\Spring\act4\bruno` mediante **Open Collection**. La colección usa el formato `.bru` y se ha ejecutado con Bruno CLI 4.3.0.
-2. Arranca la API local con MySQL y selecciona el entorno **Local**. Comprueba que `baseUrl` sea `http://localhost:8088`.
+2. Arranca la API local con MySQL y selecciona el entorno **Local**. Antes de ejecutar, ajusta y comprueba que `baseUrl` sea `http://localhost:8088`. La copia actual de `Local.bru` contiene `http://127.0.0.1:18087`, una configuración previa de túnel que no apunta por sí sola al servidor local de 8088; cambiarla desde Bruno modifica ese archivo de entorno.
 3. En la configuración de ese entorno abre la pestaña **Secrets** e introduce localmente `passwordPrueba`: al menos 8 caracteres, hasta 72 bytes UTF-8. Bruno guarda el valor del secreto en su almacén local, no en el `.bru`. No escribas contraseñas ni tokens en variables ordinarias, capturas o reportes compartidos. El secreto del entorno **DigitalOcean** es independiente.
 4. Ejecuta **01 - Registrar usuario** y luego **02 - Iniciar sesión**. El registro genera un correo único `@example.test` y lo guarda en la variable de ejecución `emailPrueba`; el login guarda el JWT en memoria como `accessToken`. No se llama a `setEnvVar`, por lo que el token no se escribe en el archivo de entorno. El token vence a los 3600 segundos.
 5. Ejecuta las peticiones de **02 - Materias** en orden: listar, crear, consultar, actualizar, paginar y eliminar. La creación guarda el ID de la respuesta en `materiaId`. Actualizar y eliminar comprueban que ese ID fue creado por el flujo con el mismo entorno y token. Finalmente ejecuta **03 - Seguridad y validaciones**, incluida la consulta de la materia eliminada.
@@ -124,11 +180,31 @@ Para ejecutar todo, usa el **Runner** de la colección, selecciona **Local**, in
 
 Las peticiones pueden ejecutarse individualmente en la misma sesión, respetando sus dependencias: registro antes de login; login antes de las peticiones protegidas; crear antes de consultar, actualizar o eliminar; eliminar antes de verificar el 404. Las variables de ejecución se pierden al cerrar Bruno; no sustituyas manualmente `materiaId` para operar sobre datos ajenos. Si renuevas el login, crea otra materia antes de actualizar o borrar, porque la protección vincula el ID al token de la creación. No cambies de entorno durante el flujo. El ID máximo usado para la prueba de inexistencia solo se consulta; si alguna vez existe y pertenece al usuario de prueba, esa comprobación no será válida.
 
-La carpeta también incluye el entorno **DigitalOcean**, con `http://204.48.17.197:8087`, reservado para más adelante. La colección no contacta ese destino mientras se seleccione Local. La URL es HTTP, no HTTPS: no envíes contraseñas ni JWT por redes no confiables; configura transporte seguro antes de utilizarla. El VPS todavía no contiene necesariamente esta versión.
+El entorno **DigitalOcean** usa `https://204.48.17.197`. Selecciónalo solo cuando corresponda probar el despliegue: ejecutar la colección registra usuarios y modifica datos en el servidor elegido. Conserva la validación del certificado habilitada y utiliza únicamente datos de prueba. El entorno Local no contacta DigitalOcean directamente; si se configura un túnel SSH, verifica siempre a qué servidor apunta antes de enviar solicitudes.
 
 Como alternativa, Bruno CLI puede leer la contraseña de prueba de la variable de proceso `BRUNO_PASSWORD`, sin guardar su valor en la colección. Desde `bruno/`, después de configurarla en el entorno del proceso, ejecuta `bru run -r --env Local --bail`. No uses `--verbose` ni reportes con cuerpos o cabeceras si pueden contener credenciales. Los resultados anteriores de CLI no sustituyen revisar las pruebas en Bruno Desktop cuando se desee verificar la interfaz.
 
-## Etapas futuras
+## Resultados de pruebas y evidencias
 
-1. Revisar gestión y rotación de claves, limitación de intentos, HTTPS y demás medidas antes de producción.
-2. Preparar y validar el despliegue por separado.
+Durante el desarrollo, `./mvnw` / `.\mvnw.cmd clean verify` completó **19 pruebas Java sin fallos ni errores**, con H2 en memoria y MockMvc; las pruebas JWT usan claves efímeras y verifican firmas reales. Esto no equivale por sí solo a una prueba contra MySQL real. La aplicación también se probó manualmente con MySQL local, según el registro de desarrollo.
+
+Los resultados informados de Bruno Desktop son **16 de 16 pruebas aprobadas** en cada caso: Local, DigitalOcean mediante túnel SSH y DigitalOcean mediante HTTPS. Las capturas registran los resultados históricos, no el estado actual del servidor:
+
+| Evidencia | Archivo |
+| --- | --- |
+| Registro y login | [Registro](capturas/01_registro_usuario_bruno.png) · [Login, token oculto](capturas/02_login_jwt_bruno.png) |
+| Credenciales y registro inválidos | [Credenciales incorrectas](capturas/03_acceso_sin_jwt_bruno.png) · [Registro inválido](capturas/04_registro_invalido_bruno.png) · [Correo duplicado](capturas/05_correo_duplicado_bruno.png) |
+| JWT y listado | [Sin token](capturas/06_acceso_sin_token_bruno.png) · [Token inválido](capturas/07_token_invalido_bruno.png) · [Listado](capturas/08_listar_materias_bruno.png) |
+| CRUD y paginación | [Crear](capturas/09_crear_materia_bruno.png) · [Consultar](capturas/10_consultar_materia_bruno.png) · [Actualizar](capturas/11_actualizar_materia_bruno.png) · [Paginar](capturas/12_paginacion_bruno.png) · [Eliminar](capturas/15_eliminar_materia_bruno.png) |
+| Validaciones y 404 | [Semestre inválido](capturas/13_semestre_invalido_bruno.png) · [Materia inexistente](capturas/14_materia_inexistente_bruno.png) · [Materia eliminada](capturas/16_materia_eliminada_bruno.png) |
+| Runner | [Local](capturas/17_runner_bruno.png) · [DigitalOcean, HTTPS](capturas/19_runner_digitalocean_https.png) |
+| Entorno y servicio | [Entorno HTTPS](capturas/20_entorno_https_digitalocean.png) · [Simulación Certbot](capturas/21_certbot_renovacion.png) · [Servicio y puerto interno](capturas/22_servicio_vps.png) |
+
+**Limitación de evidencias:** no hay una captura independiente de la ejecución mediante túnel SSH ni una captura específica del resultado de las 19 pruebas Maven en `capturas/`.
+
+## Conclusiones técnicas
+
+- BCrypt protege las contraseñas almacenadas y la comprobación de credenciales no revela si el correo existe.
+- La firma RS256, el emisor y la expiración permiten validar el JWT antes de establecer la identidad; la autorización por propietario limita el acceso a las materias propias.
+- Los DTOs, las validaciones y los errores HTTP hacen explícito el contrato sin exponer hashes en las respuestas.
+- Las pruebas automatizadas y Bruno cubren el flujo principal, pero no sustituyen una auditoría de seguridad. Antes de un uso de producción deben revisarse, entre otros aspectos, la rotación de claves, la limitación de intentos, la observabilidad y la revocación de tokens.
