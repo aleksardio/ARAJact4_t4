@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 		"spring.jpa.hibernate.ddl-auto=validate"
 })
 @AutoConfigureMockMvc
-class AutenticacionIntegrationTests {
+class AutenticacionIntegrationTests extends ClavesJwtPrueba {
 	@Autowired private MockMvc mvc;
 	@Autowired private UsuarioRepository usuarios;
 	@Autowired private PasswordEncoder encoder;
@@ -95,11 +95,11 @@ class AutenticacionIntegrationTests {
 		} finally { pool.shutdownNow(); }
 	}
 
-	@Test void rutasProtegidasYLoginNoDisponible() throws Exception {
+	@Test void rutasProtegidasYLoginPublico() throws Exception {
 		mvc.perform(get("/api/materias")).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.estado").value(401));
 		mvc.perform(post("/api/materias").contentType(MediaType.APPLICATION_JSON).content("{}"))
 				.andExpect(status().isUnauthorized());
 		mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("{}"))
-				.andExpect(status().isUnauthorized());
+				.andExpect(status().isBadRequest());
 	}
 }

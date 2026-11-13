@@ -32,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 		"spring.jpa.hibernate.ddl-auto=validate"
 })
 @AutoConfigureMockMvc
-class MateriaApiIntegrationTests {
+class MateriaApiIntegrationTests extends ClavesJwtPrueba {
 	@Autowired private MockMvc mvc;
 	@Autowired private UsuarioRepository usuarios;
 	@Autowired private MateriaRepository materias;

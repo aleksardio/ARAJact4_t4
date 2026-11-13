@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 		"spring.sql.init.schema-locations=file:database/schema.sql",
 		"spring.jpa.hibernate.ddl-auto=validate"
 })
-class PersistenciaIntegrationTests {
+class PersistenciaIntegrationTests extends ClavesJwtPrueba {
 
 	@Autowired private UsuarioRepository usuarios;
 	@Autowired private MateriaRepository materias;
