@@ -22,6 +22,20 @@ Para compilar y ejecutar las pruebas en Windows:
 
 Las pruebas de persistencia y del controlador utilizan H2 exclusivamente en memoria, ejecutan `database/schema.sql` en modo de compatibilidad MySQL y validan los mapeos con Hibernate. Las pruebas HTTP usan MockMvc y una identidad de prueba en Spring Security. No acceden a la base MySQL local y no sustituyen una verificación en MySQL 8 real.
 
+## Registro y credenciales
+
+`POST /api/auth/register` es público y recibe JSON, por ejemplo:
+
+```json
+{"nombre":"Ana", "email":" Ana@example.test ", "password":"una-clave-segura"}
+```
+
+El nombre es obligatorio, no puede estar en blanco y admite hasta 255 caracteres. El correo es obligatorio, debe cumplir `@Email`, admite hasta 255 caracteres y se normaliza quitando espacios exteriores y convirtiéndolo a minúsculas antes de validar y guardar. Debe ser único; la restricción UNIQUE de la base también protege frente a registros concurrentes. La contraseña es obligatoria, tiene al menos 8 caracteres y como máximo 72 bytes UTF-8, límite de BCrypt; este límite en bytes puede representar menos caracteres para texto no ASCII.
+
+Se guarda exclusivamente un hash generado por `BCryptPasswordEncoder`, con su coste predeterminado de 10 y una sal aleatoria. La respuesta `201 Created` contiene solo información pública, por ejemplo `{"id":1,"nombre":"Ana","email":"ana@example.test"}`; no contiene contraseña ni hash. Los datos inválidos producen `400` y un correo duplicado `409`. Los errores tratados usan JSON con `estado`, `mensaje` y `campos`.
+
+El servicio interno `AutenticacionService.verificarCredenciales` normaliza el correo mediante `LoginSolicitud` y comprueba la contraseña con `PasswordEncoder.matches`. Si el correo no existe o la contraseña es incorrecta, rechaza ambos casos con el mismo error genérico. Comprobar credenciales **no emite ni valida JWT**, ni inicia una sesión. No existe todavía un endpoint público de login; `POST /api/auth/login` no está implementado.
+
 ## CRUD de materias
 
 | Método y ruta | Resultado exitoso |
@@ -50,9 +64,9 @@ El propietario se obtiene exclusivamente de una identidad autenticada confiable 
 
 ### Estado de seguridad
 
-Spring Security conserva su configuración predeterminada y el CRUD exige un principal que implemente `IdentidadUsuario` con el ID de un usuario existente. Ningún mecanismo de autenticación real lo proporciona todavía: el usuario predeterminado de Spring no permite utilizar este CRUD. Las pruebas crean el principal solo en el contexto de prueba. Falta implementar registro, login y JWT, y conectar la identidad validada al principal; por ahora no se puede usar el CRUD con JWT ni se debe considerar listo para producción.
+Spring Security permite únicamente el registro anónimo y protege el resto de rutas. La configuración es stateless, desactiva el login por formulario y HTTP Basic y no utiliza sesiones para autenticar. Se desactiva CSRF porque no hay autenticación mediante cookies ni sesión; esta decisión deberá revisarse si se incorpora alguna. Las peticiones anónimas protegidas reciben 401 JSON.
 
-Las solicitudes anónimas probadas reciben 401; para escrituras, la protección CSRF predeterminada puede responder 403 antes de la autenticación si falta el token CSRF. Las respuestas generadas por los filtros de seguridad, incluidas esas respuestas 401/403, no utilizan necesariamente el formato JSON del manejador del controlador. Las pruebas de escritura incluyen un token CSRF de prueba; no se desactivó la protección.
+El CRUD exige un principal que implemente `IdentidadUsuario` con el ID de un usuario existente. Ningún mecanismo real lo proporciona todavía; las pruebas crean el principal solo en el contexto de prueba. Por ahora no se puede utilizar el CRUD mediante JWT y la aplicación no está lista para producción.
 
 ## Esquema MySQL
 
@@ -60,6 +74,6 @@ En MySQL Workbench, conecta a la instancia local, selecciona la base `araj_act4_
 
 ## Etapas futuras
 
-1. Implementar registro y login seguros.
-2. Configurar autenticación y autorización con JWT y conectar el principal.
+1. Etapa 5: implementar el endpoint de login y la emisión y validación de JWT; conectar la identidad validada a `IdentidadUsuario` sin confiar en datos enviados por el cliente.
+2. Revisar gestión de claves, expiración y medidas de protección antes de producción.
 3. Preparar y validar el despliegue.

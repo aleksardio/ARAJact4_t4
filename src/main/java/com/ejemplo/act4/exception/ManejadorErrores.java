@@ -42,6 +42,16 @@ public class ManejadorErrores {
 		return respuesta(HttpStatus.UNAUTHORIZED, "Se requiere una identidad de usuario válida", Map.of());
 	}
 
+	@ExceptionHandler(EmailDuplicadoException.class)
+	public ResponseEntity<ErrorRespuesta> emailDuplicado() {
+		return respuesta(HttpStatus.CONFLICT, "El correo ya está registrado", Map.of());
+	}
+
+	@ExceptionHandler(CredencialesInvalidasException.class)
+	public ResponseEntity<ErrorRespuesta> credenciales() {
+		return respuesta(HttpStatus.UNAUTHORIZED, "Credenciales inválidas", Map.of());
+	}
+
 	private ResponseEntity<ErrorRespuesta> respuesta(HttpStatus estado, String mensaje, Map<String, String> campos) {
 		return ResponseEntity.status(estado).body(new ErrorRespuesta(estado.value(), mensaje, campos));
 	}
