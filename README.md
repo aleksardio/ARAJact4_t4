@@ -26,10 +26,11 @@ Las pruebas de persistencia y del controlador utilizan H2 exclusivamente en memo
 
 La aplicación necesita una clave RSA privada **PKCS#8 PEM sin cifrar**, de al menos 2048 bits. La clave pública se deriva de ella. `JWT_PRIVATE_KEY` contiene la ruta al archivo (no su contenido); `JWT_ISSUER` identifica al emisor y por defecto es `act4-api`. Si falta la clave o es inválida, el arranque falla: no se genera una clave alternativa.
 
-Con OpenSSL instalado, un ejemplo en PowerShell para desarrollo local es:
+Con OpenSSL instalado, un ejemplo en PowerShell 7 para desarrollo local es el siguiente. Si `openssl` no está en `PATH` y tienes Git para Windows, comprueba si existe `C:\Program Files\Git\usr\bin\openssl.exe` y utiliza esa ruta completa con `&` en vez de `openssl`. No sobrescribas una clave ya existente: al cambiarla dejan de validarse los tokens emitidos con la anterior.
 
 ```powershell
 New-Item -ItemType Directory -Force "$HOME\act4-claves"
+if (Test-Path "$HOME\act4-claves\jwt-private.pem") { throw "La clave ya existe; no se sobrescribirá" }
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$HOME\act4-claves\jwt-private.pem"
 $env:JWT_PRIVATE_KEY = "$HOME\act4-claves\jwt-private.pem"
 $env:JWT_ISSUER = "act4-local"
@@ -109,7 +110,7 @@ Spring Security permite anónimamente solo `POST /api/auth/register` y `POST /ap
 
 ## Esquema MySQL
 
-En MySQL Workbench, conecta a la instancia local, selecciona la base `araj_act4_dev`, abre `database/schema.sql` y revisa y ejecuta el script sobre esa base. Si la base no existe, créala previamente desde Workbench. El script crea tablas y falla si ya existen: revisa cualquier tabla existente antes de ejecutarlo. Requiere MySQL 8.0.16 o posterior para que se aplique la restricción `CHECK` de semestre. No se ejecuta automáticamente al iniciar la aplicación.
+En MySQL Workbench, conecta a la instancia local y comprueba `SELECT VERSION();`, `SHOW DATABASES LIKE 'araj_act4_dev';` y, si existe, `USE araj_act4_dev; SHOW TABLES;`. Si faltan ambas tablas y tienes autorización para crearlas, selecciona `araj_act4_dev` como esquema predeterminado, abre `D:\Spring\act4\database\schema.sql` con **File > Open SQL Script**, comprueba el esquema seleccionado y ejecuta el script completo con el botón del rayo. Si falta la base, solicita autorización antes de crearla. Si existe alguna tabla, no vuelvas a ejecutar el script completo: revisa primero el esquema existente para evitar cambios no deseados. Requiere MySQL 8.0.16 o posterior para que se aplique la restricción `CHECK` de semestre. No se ejecuta automáticamente al iniciar la aplicación. Usa una cuenta dedicada para la aplicación, no `root` como usuario permanente.
 
 ## Etapas futuras
 
